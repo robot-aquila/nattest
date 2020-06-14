@@ -6,6 +6,8 @@ import static ru.prolib.nattest.impl.GraphType.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -177,6 +179,15 @@ public class GraphImplTest {
 	}
 	
 	@Test
+	public void testAddEdge3_ThrowsIfTargetSameAsSource() {
+		service.addVertex(504).addVertex(256);
+		eex.expect(IllegalArgumentException.class);
+		eex.expectMessage("Cannot use same vertex as source and target: " + 504);
+		
+		service.addEdge(504, 504, 0.95d);
+	}
+	
+	@Test
 	public void testAddEdge2_Undirected() {
 		service.addVertex(504).addVertex(256);
 		
@@ -208,11 +219,19 @@ public class GraphImplTest {
 	@Test
 	public void testAddEdge2_ThrowsIfTargetNotExists() {
 		service.addVertex(504);
-		
 		eex.expect(IllegalArgumentException.class);
 		eex.expectMessage("Vertex not found: 256");
 		
 		service.addEdge(504, 256);
+	}
+	
+	@Test
+	public void testAddEdge2_ThrowsIfTargetSameAsSource() {
+		service.addVertex(504).addVertex(256);
+		eex.expect(IllegalArgumentException.class);
+		eex.expectMessage("Cannot use same vertex as source and target: " + 504);
+		
+		service.addEdge(504, 504);
 	}
 	
 	@Test
@@ -295,6 +314,55 @@ public class GraphImplTest {
 		assertTrue(service_d.isDirected());
 		
 		service_d.getPath(10, 4);
+	}
+	
+	@Test
+	public void testGetPath_JustCase1() {
+		service.addVertex(1)
+			.addVertex( 2).addVertex( 3).addVertex( 4).addVertex( 5)
+			.addVertex( 6).addVertex( 7).addVertex( 8).addVertex( 9)
+			.addVertex(10).addVertex(11).addVertex(12).addVertex(13)
+			.addVertex(14)
+			.addEdge( 1,  2, 0.5d).addEdge( 1,  3, 0.5d).addEdge( 1,  4, 0.5d).addEdge( 1,  5, 0.5d)
+			.addEdge( 2,  6, 0.1d).addEdge( 3,  7, 0.6d).addEdge( 4,  8, 0.3d).addEdge( 5,  9, 1.2d)
+			.addEdge( 6, 10, 0.9d).addEdge( 7, 11, 0.5d).addEdge( 8, 12, 0.7d).addEdge( 9, 13, 0.4d)
+			.addEdge(10, 14, 0.2d).addEdge(11, 14, 0.8d).addEdge(12, 14, 0.1d).addEdge(13, 14, 0.6d);
+		
+		Collection<Integer> actual = service.getPath(1, 14);
+		
+		Collection<Integer> expected = Arrays.asList(1, 4, 8, 12, 14).stream().collect(Collectors.toList());
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	public void testTraverseVertices_UsingStreams() {
+		// Let's sum up all weights of all edges of directed graph
+		
+		double actual = loadTestGraphWithWeights(service_d).stream()
+				.mapToDouble(x -> x.getEdges().stream().mapToDouble(e -> e.getWeight()).sum())
+				.sum();
+
+		double expected = 11.8;
+		assertEquals(expected, actual, 0.001d);
+	}
+	
+	@Test
+	public void testTraverseVertices_UsingUserFunction() {
+		
+		class TestUserFunction implements Consumer<GraphNode<Integer>> {
+			private double sum = 0.0d;
+			
+			@Override public void accept(GraphNode<Integer> node) {
+				for ( GraphEdge<?> edge : node.getEdges() ) {
+					sum += edge.getWeight();
+				}
+			}
+		}
+		TestUserFunction userFunction = new TestUserFunction();
+		
+		loadTestGraphWithWeights(service_d).stream().forEach(userFunction);
+		
+		assertEquals(11.8d, userFunction.sum, 0.001d);
 	}
 
 }

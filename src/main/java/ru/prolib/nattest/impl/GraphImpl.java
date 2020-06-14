@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 import ru.prolib.nattest.Graph;
 
@@ -76,6 +77,9 @@ public class GraphImpl<VertexType> implements Graph<VertexType> {
 
 	public GraphImpl<VertexType> addEdge(VertexType source, VertexType target, double weight) {
 		GraphNodeImpl<VertexType> source_node = getNode(source), target_node = getNode(target);
+		if ( source_node == target_node ) {
+			throw new IllegalArgumentException("Cannot use same vertex as source and target: " + source);
+		}
 		source_node.addEdge(target, weight);
 		// Inconsistent state possible when concurrent adding edges. Possible solution is to use
 		// addition map for the pairs of vertices to lock each pair during modifications.
@@ -151,6 +155,10 @@ public class GraphImpl<VertexType> implements Graph<VertexType> {
 			path.addFirst(next);
 		}
 		return path;
+	}
+	
+	public Stream<GraphNode<VertexType>> stream() {
+		return nodes.values().stream().map(x -> (GraphNode<VertexType>)x);
 	}
 
 }
